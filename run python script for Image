@@ -1,0 +1,68 @@
+# Import necessary libraries
+import base64
+import pandas as pd
+import os
+
+# The 'dataset' variable is automatically provided by Power BI as a DataFrame
+# It is assumed to contain a column named "Image Path"
+
+# --- Function to convert an image file to base64 with error handling ---
+def image_to_base64(image_path):
+    """
+    Converts an image file to a base64 encoded string.
+
+    Args:
+        image_path (str): The path to the image file.
+
+    Returns:
+        str: The base64 encoded string of the image, or None if an error occurs.
+    """
+    try:
+        # Check if the file exists before attempting to open it
+        if os.path.exists(image_path):
+            with open(image_path, "rb") as image_file:
+                base64_data = base64.b64encode(image_file.read()).decode()
+            return base64_data
+        else:
+            print(f"Error: The file at {image_path} was not found.")
+            return None
+    except Exception as e:
+        print(f"An unexpected error occurred while processing {image_path}: {e}")
+        return None
+
+# --- Main logic to process images and create the output DataFrame ---
+
+# Initialize an empty list to store dictionaries for each row
+data_rows = []
+
+# Iterate through the image paths provided in the 'dataset' DataFrame from Power BI
+for index, row in dataset.iterrows():
+    image_path = row.get("Image Path")
+
+    # Ensure the image_path is a valid string
+    if not isinstance(image_path, str):
+        print(f"Skipping row {index}: 'Image Path' is not a valid string.")
+        continue
+    
+    # Process only valid image files
+    if image_path.lower().endswith((".jpeg", ".jpg", ".png")):
+        filename = os.path.basename(image_path)
+        base64_data = image_to_base64(image_path)
+
+        if base64_data:
+            # Split the base64 data into chunks of 32,000 characters
+            chunk_size = 32000
+            base64_chunks = [base64_data[i:i + chunk_size] for i in range(0, len(base64_data), chunk_size)]
+
+            # Create a dictionary to represent the row
+            row_dict = {"Filename": filename}
+            for i, chunk in enumerate(base64_chunks):
+                row_dict[f"Column{i+1}"] = chunk
+
+            # Append the dictionary to the list
+            data_rows.append(row_dict)
+
+# Create the final DataFrame from the list of dictionaries
+df = pd.DataFrame(data_rows)
+
+# The final result DataFrame is implicitly returned to Power BI
